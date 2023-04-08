@@ -20,7 +20,6 @@ body { margin: 0; padding-bottom: 3rem; font-family: -apple-system, BlinkMacSyst
       <input id="input" autocomplete="off" /><button>Send</button>
     </form>
     <script src="/socket.io/socket.io.js"></script>
-	<script src = "ledis.js"> </script>
     <script>
       var socket = io();
 	var tempNamespace = {};
@@ -47,15 +46,24 @@ body { margin: 0; padding-bottom: 3rem; font-family: -apple-system, BlinkMacSyst
 			}
 			else
 			{
-				tempNamespace[inputArr[1]] = inputArr[2];
-				item.textContent = inputArr[2];
+				var i = 2;
+				var tmpString = "";
+				while (inputArr[i])
+				{
+					tmpString += inputArr[i] +" ";
+					i++;
+				}
+				tempNamespace[inputArr[1]] = tmpString;
+				item.textContent = "OK";
 			}
 		}
 		else if (inputArr[0] ==="GET")
 		{
-			if (inputArr[1]  && tempNamespace[inputArr[1]])
+			if (inputArr[1] && !inputArr[2])
 			{
 				item.textContent = tempNamespace[inputArr[1]];
+				if (!tempNamespace[inputArr[1]])
+					item.textContent = "(nil)";
 			}
 			else
 			{
@@ -75,14 +83,21 @@ body { margin: 0; padding-bottom: 3rem; font-family: -apple-system, BlinkMacSyst
 					tempNamespace[inputArr[1]] = [];
 					sizeNamespace[inputArr[1]] = 0;
 				}
-				var i = 2;
-				while (inputArr[i])
+				if (Array.isArray(tempNamespace[inputArr[1]]))
 				{
-					tempNamespace[inputArr[1]].push(inputArr[i]);
-					sizeNamespace[inputArr[1]] = sizeNamespace[inputArr[1]] + 1;
-					i++;
+					var i = 2;
+					while (inputArr[i])
+					{
+						tempNamespace[inputArr[1]].push(inputArr[i]);
+						sizeNamespace[inputArr[1]] = sizeNamespace[inputArr[1]] + 1;
+						i++;
+					}
+					item.textContent = sizeNamespace[inputArr[1]];
 				}
-				item.textContent = sizeNamespace[inputArr[1]];
+				else
+				{
+					item.textContent = "(error) WRONGTYPE Operation against a key holding the wrong kind of value";
+				}
 			}
 		}
 		else if (inputArr[0] ==="RPOP")
@@ -96,10 +111,8 @@ body { margin: 0; padding-bottom: 3rem; font-family: -apple-system, BlinkMacSyst
 			{
 				for (let i = 1; i<=inputArr[2];i++)
 				{
-					item.textContent = tempNamespace[inputArr[1]].pop();
+					socket.emit('output msg',i+") "+ tempNamespace[inputArr[1]].pop());
 					sizeNamespace[inputArr[1]] = sizeNamespace[inputArr[1]] - 1;
-					messages.appendChild(item);
-					window.scrollTo(0, document.body.scrollHeight);
 				}
 			}
 			else if (!sizeNamespace[inputArr[1]])
@@ -107,8 +120,8 @@ body { margin: 0; padding-bottom: 3rem; font-family: -apple-system, BlinkMacSyst
 		}
 		else if (inputArr[0] ==="LRANGE")
 		{
-			for (let i = inputArr[2]; i< inputArr[3]; i++)
-				socket.emit('chat message',tempNamespace[inputArr[1]][i]);
+			for (let i = inputArr[2]; i<= inputArr[3]; i++)
+				socket.emit('output msg',tempNamespace[inputArr[1]][i]);
 		}
 		else if (inputArr[0] ==="SADD")
 		{
@@ -167,7 +180,7 @@ body { margin: 0; padding-bottom: 3rem; font-family: -apple-system, BlinkMacSyst
 				const iterator = tempNamespace[inputArr[1]].values();
 				for (let i = 0 ; i<sizeNamespace[inputArr[1]];i++)
 				{
-					socket.emit('chat message',iterator.next().value);
+					socket.emit('output msg',iterator.next().value);
 			 	}
 			}
 		}
@@ -180,7 +193,7 @@ body { margin: 0; padding-bottom: 3rem; font-family: -apple-system, BlinkMacSyst
 			var cnt = 1;
 			for (var i in tempNamespace)
 			{
-				socket.emit('chat message',cnt +") " + i);
+				socket.emit('output msg',cnt +") " + i);
 				cnt++;
 			}
 		}
@@ -234,7 +247,7 @@ body { margin: 0; padding-bottom: 3rem; font-family: -apple-system, BlinkMacSyst
             input.value = '';
         }
       });
-	socket.on('chat message', function(msg) {
+	socket.on('output msg', function(msg) {
         var item = document.createElement('li');
         item.textContent = msg;
         messages.appendChild(item);
